@@ -166,7 +166,7 @@ abstract class ExpressionBuilder
 
         return $this->expr()->like(
             $this->forceCaseInsensitivity ? $this->expr()->lower($field) : $field,
-            $this->expr()->literal($value)
+            $this->forceCaseInsensitivity ? $this->expr()->lower($this->expr()->literal($value)) : $this->expr()->literal($value)
         );
     }
 
@@ -220,10 +220,6 @@ abstract class ExpressionBuilder
      */
     protected function convertTypeToMask($value, $type)
     {
-        if ($this->forceCaseInsensitivity) {
-            $value = strtolower($value);
-        }
-
         switch ($type) {
             case FilterOperands::STRING_STARTS:
                 $value .= '%';
