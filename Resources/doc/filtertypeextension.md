@@ -1,6 +1,5 @@
-
-5. The FilterTypeExtension
-==========================
+[5] The FilterTypeExtension
+===========================
 
 The bundle loads a custom type extension to add the `apply_filter`,  `data_extraction_method`, and `filter_condition_builder` options to **all form types**. These options are used when a filter condition is applied to the query builder.
 
@@ -14,6 +13,7 @@ You can pass a Closure or a valid callback to this option, here is a simple exam
 <?php
 
 use Lexik\Bundle\FormFilterBundle\Filter\Query\QueryInterface;
+use Lexik\Bundle\FormFilterBundle\Filter\Form\Type as Filters;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 
@@ -21,11 +21,11 @@ class CallbackFilterType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $builder->add('my_text_field', 'filter_text', array(
+        $builder->add('my_text_field', Filters\TextFilterType::class, array(
             'apply_filter' => array($this, 'textFieldCallback'),
         ));
 
-        $builder->add('my_number_field', 'filter_number', array(
+        $builder->add('my_number_field', Filters\NumberFilterType::class, array(
             'apply_filter' => function(QueryInterface $filterQuery, $field, $values) {
                 if (empty($values['value'])) {
                     return null;
@@ -43,7 +43,7 @@ class CallbackFilterType extends AbstractType
         ));
     }
 
-    public function getName()
+    public function getBlockPrefix()
     {
         return 'item_filter';
     }
@@ -73,8 +73,8 @@ This option replaces the `translaformer_id` option. This option defines the way 
 Available extration methods:
 
 * default: simply get the form data.
-* text: used with filter_text and filter_number types if you choose to display the combo box of available patterns/operator, it has the data from the combo box and the text field.
-* value_keys: used with filter_xxx_range type to get values form each form child.
+* text: used with `TextFilterType` and `NumberFilterType` types if you choose to display the combo box of available patterns/operator, it has the data from the combo box and the text field.
+* value_keys: used with `NumberRangeFilterType`, `DateTimeRangeFilterType` and `DateRangeFilterType` types to get values form each form child.
 
 Create a custom extraction method:
 
@@ -123,9 +123,11 @@ Then define your class as a service with the `lexik_form_filter.data_extraction_
 Now you can use your method:
 
 ```php
+use Lexik\Bundle\FormFilterBundle\Filter\Form\Type as Filters;
+
 public function buildForm(FormBuilderInterface $builder, array $options)
 {
-    $builder->add('my_text_field', 'filter_text', array(
+    $builder->add('my_text_field', Filters\TextFilterType::class, array(
         'data_extraction_method' => 'rainbow',
     ));
 }
@@ -137,3 +139,7 @@ This option is used to defined the operator (and/or) to use between each conditi
 This option is expected to be closure and recieve one parameter which is an instance of `Lexik\Bundle\FormFilterBundle\Filter\Condition\ConditionBuilderInterface`.
 
 See [4.iii section](working-with-the-bundle.md#iii-customize-condition-operator) for examples.
+
+***
+
+Next: [7. Working with other bundles](working-with-other-bundles.md)

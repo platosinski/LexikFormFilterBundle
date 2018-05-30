@@ -63,7 +63,15 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
     public function testDateRange()
     {
         parent::createDateRangeTest('getDQL', array(
-            'SELECT i FROM Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Entity\Item i WHERE i.createdAt <= \'2012-05-22\' AND i.createdAt >= \'2012-05-12\'',
+            'SELECT i FROM Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Entity\Item i WHERE i.createdAt <= \'2012-05-22 23:59:59\' AND i.createdAt >= \'2012-05-12 00:00:00\'',
+        ));
+    }
+
+    public function testDateRangeWithTimezone()
+    {
+        parent::createDateRangeWithTimezoneTest('getDQL', array(
+            'SELECT i FROM Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Entity\Item i WHERE i.startAt <= \'2015-10-20 23:59:59\' AND i.startAt >= \'2015-10-20 00:00:00\'',
+            'SELECT i FROM Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Entity\Item i WHERE i.startAt <= \'2015-10-16 23:59:59\' AND i.startAt >= \'2015-10-01 00:00:00\'',
         ));
     }
 
@@ -84,8 +92,8 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
     public function testEmbedFormFilter()
     {
         // doctrine query builder without any joins
-        $form = $this->formFactory->create(new ItemEmbeddedOptionsFilterType());
-        $filterQueryBuilder = $this->initQueryBuilder();
+        $form = $this->formFactory->create(ItemEmbeddedOptionsFilterType::class);
+        $filterQueryBuilder = $this->initQueryBuilderUpdater();
 
         $doctrineQueryBuilder = $this->createDoctrineQueryBuilder();
         $form->submit(array('name' => 'dude', 'options' => array(array('label' => 'color', 'rank' => 3))));
@@ -98,8 +106,8 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
         $this->assertEquals(array('p_opt_rank' => 3), $this->getQueryBuilderParameters($doctrineQueryBuilder));
 
         // doctrine query builder with joins
-        $form = $this->formFactory->create(new ItemEmbeddedOptionsFilterType());
-        $filterQueryBuilder = $this->initQueryBuilder();
+        $form = $this->formFactory->create(ItemEmbeddedOptionsFilterType::class);
+        $filterQueryBuilder = $this->initQueryBuilderUpdater();
 
         $doctrineQueryBuilder = $this->createDoctrineQueryBuilder();
         $doctrineQueryBuilder->leftJoin('i.options', 'o');
@@ -118,7 +126,7 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
     public function testCustomConditionBuilder()
     {
         // doctrine query builder without any joins + custom condition builder
-        $form = $this->formFactory->create(new ItemEmbeddedOptionsFilterType(), null, array(
+        $form = $this->formFactory->create(ItemEmbeddedOptionsFilterType::class, null, array(
             'filter_condition_builder' => function (ConditionBuilderInterface $builder) {
                 $builder
                     ->root('or')
@@ -131,7 +139,7 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
                 ;
             },
         ));
-        $filterQueryBuilder = $this->initQueryBuilder();
+        $filterQueryBuilder = $this->initQueryBuilderUpdater();
 
         $doctrineQueryBuilder = $this->createDoctrineQueryBuilder();
         $form->submit(array('name' => 'dude', 'options' => array(array('label' => 'color', 'rank' => 6))));
@@ -144,7 +152,7 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
         $this->assertEquals(array('p_opt_rank' => 6), $this->getQueryBuilderParameters($doctrineQueryBuilder));
 
         // doctrine query builder without any joins + custom condition builder
-        $form = $this->formFactory->create(new ItemEmbeddedOptionsFilterType(), null, array(
+        $form = $this->formFactory->create(ItemEmbeddedOptionsFilterType::class, null, array(
             'filter_condition_builder' => function (ConditionBuilderInterface $builder) {
                     $builder
                         ->root('and')
@@ -160,7 +168,7 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
                     ;
                 },
         ));
-        $filterQueryBuilder = $this->initQueryBuilder();
+        $filterQueryBuilder = $this->initQueryBuilderUpdater();
 
         $doctrineQueryBuilder = $this->createDoctrineQueryBuilder();
         $form->submit(array('name' => 'dude', 'position' => 1, 'options' => array(array('label' => 'color', 'rank' => 6))));
@@ -176,10 +184,10 @@ class ORMQueryBuilderUpdaterTest extends DoctrineQueryBuilderUpdater
     public function testWithDataClass()
     {
         // doctrine query builder without any joins + a data_class
-        $form = $this->formFactory->create(new ItemEmbeddedOptionsFilterType(), null, array(
+        $form = $this->formFactory->create(ItemEmbeddedOptionsFilterType::class, null, array(
             'data_class' => 'Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Entity\Item',
         ));
-        $filterQueryBuilder = $this->initQueryBuilder();
+        $filterQueryBuilder = $this->initQueryBuilderUpdater();
 
         $doctrineQueryBuilder = $this->createDoctrineQueryBuilder();
         $form->submit(array('name' => 'dude', 'options' => array(array('label' => 'color', 'rank' => 6))));

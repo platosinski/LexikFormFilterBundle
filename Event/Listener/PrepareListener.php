@@ -3,8 +3,6 @@
 namespace Lexik\Bundle\FormFilterBundle\Event\Listener;
 
 use Lexik\Bundle\FormFilterBundle\Event\PrepareEvent;
-use Lexik\Bundle\FormFilterBundle\Filter\Doctrine\ORMQuery;
-use Lexik\Bundle\FormFilterBundle\Filter\Doctrine\DBALQuery;
 use Doctrine\DBAL\Platforms\PostgreSqlPlatform;
 
 /**
@@ -16,6 +14,11 @@ class PrepareListener
      * @var boolean
      */
     protected $forceCaseInsensitivity = null;
+
+    /**
+     * @var string|null
+     */
+    protected $encoding;
 
     /**
      * @param boolean $value
@@ -53,6 +56,26 @@ class PrepareListener
     }
 
     /**
+     * @return null|string
+     */
+    public function getEncoding()
+    {
+        return $this->encoding;
+    }
+
+    /**
+     * @param null|string $encoding
+     *
+     * @return PrepareListener
+     */
+    public function setEncoding($encoding)
+    {
+        $this->encoding = $encoding;
+
+        return $this;
+    }
+
+    /**
      * Filter builder prepare event
      *
      * @param PrepareEvent $event
@@ -61,24 +84,21 @@ class PrepareListener
     {
         $qb = $event->getQueryBuilder();
 
-        if (class_exists('\Doctrine\ORM\QueryBuilder') && $qb instanceof \Doctrine\ORM\QueryBuilder) {
-            $event->setFilterQuery(new ORMQuery(
-                $qb,
-                $this->getForceCaseInsensitivity($qb)
-            ));
-            $event->stopPropagation();
+        $queryClasses = array(
+            'Doctrine\ORM\QueryBuilder'          => 'Lexik\Bundle\FormFilterBundle\Filter\Doctrine\ORMQuery',
+            'Doctrine\DBAL\Query\QueryBuilder'   => 'Lexik\Bundle\FormFilterBundle\Filter\Doctrine\DBALQuery',
+            'Doctrine\ODM\MongoDB\Query\Builder' => 'Lexik\Bundle\FormFilterBundle\Filter\Doctrine\MongodbQuery',
+        );
 
-            return;
-        }
+        foreach ($queryClasses as $builderClass => $queryClass) {
+            if (class_exists($builderClass) && $qb instanceof $builderClass) {
+                $query = new $queryClass($qb, $this->getForceCaseInsensitivity($qb), $this->encoding);
 
-        if (class_exists('\Doctrine\DBAL\Query\QueryBuilder') && $qb instanceof \Doctrine\DBAL\Query\QueryBuilder) {
-            $event->setFilterQuery(new DBALQuery(
-                $qb,
-                $this->getForceCaseInsensitivity($qb)
-            ));
-            $event->stopPropagation();
+                $event->setFilterQuery($query);
+                $event->stopPropagation();
 
-            return;
+                return;
+            }
         }
     }
 }

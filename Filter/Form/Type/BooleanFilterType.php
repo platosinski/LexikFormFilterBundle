@@ -3,6 +3,8 @@
 namespace Lexik\Bundle\FormFilterBundle\Filter\Form\Type;
 
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
@@ -20,13 +22,13 @@ class BooleanFilterType extends AbstractType
      */
     public function getParent()
     {
-        return 'choice';
+        return ChoiceType::class;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getName()
+    public function getBlockPrefix()
     {
         return 'filter_boolean';
     }
@@ -40,14 +42,18 @@ class BooleanFilterType extends AbstractType
             ->setDefaults(array(
                 'required'               => false,
                 'choices'                => array(
-                    self::VALUE_YES  => 'boolean.yes',
-                    self::VALUE_NO   => 'boolean.no',
+                    'boolean.yes' => self::VALUE_YES,
+                    'boolean.no'  => self::VALUE_NO,
                 ),
-                'empty_value'            => 'boolean.yes_or_no',
+                'placeholder'            => 'boolean.yes_or_no',
                 'translation_domain'     => 'LexikFormFilterBundle',
                 'data_extraction_method' => 'default',
             ))
             ->setAllowedValues('data_extraction_method', array('default'))
         ;
+        
+        if(version_compare(Kernel::VERSION, '3.1.0') < 0) {
+            $resolver->setDefault('choices_as_values', true); // must be removed for use in Symfony 3.1, needed for 2.8
+        }
     }
 }

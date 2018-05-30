@@ -7,6 +7,7 @@ use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Symfony\Component\DependencyInjection\Loader;
 use Lexik\Bundle\FormFilterBundle\DependencyInjection\Configuration;
+use Lexik\Bundle\FormFilterBundle\Filter\FilterOperands;
 
 /**
  * This is the class that loads and manages your bundle configuration
@@ -22,13 +23,18 @@ class LexikFormFilterExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container)
     {
+        $configuration = new Configuration();
+        $config = $this->processConfiguration($configuration, $configs);
+
         $loader = new Loader\XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.xml');
         $loader->load('form.xml');
-        $loader->load('listeners.xml');
 
-        $configuration = new Configuration();
-        $config        = $this->processConfiguration($configuration, $configs);
+        foreach ($config['listeners'] as $name => $enable) {
+            if ($enable) {
+                $loader->load(sprintf('%s.xml', $name));
+            }
+        }
 
         if (isset($config['force_case_insensitivity'])) {
             $filterPrepareDef = $container->getDefinition('lexik_form_filter.filter_prepare');
@@ -38,6 +44,15 @@ class LexikFormFilterExtension extends Extension
             );
         }
 
+        if (isset($config['encoding'])) {
+            $filterPrepareDef = $container->getDefinition('lexik_form_filter.filter_prepare');
+            $filterPrepareDef->addMethodCall(
+                'setEncoding',
+                array($config['encoding'])
+            );
+        }
+
         $container->setParameter('lexik_form_filter.where_method', $config['where_method']);
+        $container->setParameter('lexik_form_filter.text.condition_pattern', FilterOperands::getStringOperandByString($config['condition_pattern']));
     }
 }

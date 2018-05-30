@@ -5,6 +5,9 @@ namespace Lexik\Bundle\FormFilterBundle\Event\Subscriber;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Type;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Lexik\Bundle\FormFilterBundle\Event\GetFilterConditionEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -34,7 +37,7 @@ class DoctrineORMSubscriber extends AbstractDoctrineSubscriber implements EventS
             'lexik_form_filter.apply.orm.filter_number_range'   => array('filterNumberRange'),
             'lexik_form_filter.apply.orm.filter_text'           => array('filterText'),
 
-            // Symfony2 types
+            // Symfony types
             'lexik_form_filter.apply.orm.text'     => array('filterText'),
             'lexik_form_filter.apply.orm.email'    => array('filterValue'),
             'lexik_form_filter.apply.orm.integer'  => array('filterValue'),
@@ -68,44 +71,70 @@ class DoctrineORMSubscriber extends AbstractDoctrineSubscriber implements EventS
 
         if (is_object($values['value'])) {
             $paramName = $this->generateParameterName($event->getField());
+            $filterField = $event->getField();
+
+            /** @var QueryBuilder $queryBuilder */
+            $queryBuilder = $event->getQueryBuilder();
+
+            if ($dqlFrom = $event->getQueryBuilder()->getDQLPart('from')) {
+                $rootPart = reset($dqlFrom);
+                $fieldName = ltrim($event->getField(), $rootPart->getAlias() . '.');
+                $metadata = $queryBuilder->getEntityManager()->getClassMetadata($rootPart->getFrom());
+
+                if (isset($metadata->associationMappings[$fieldName]) && (!$metadata->associationMappings[$fieldName]['isOwningSide'] || $metadata->associationMappings[$fieldName]['type'] === ClassMetadataInfo::MANY_TO_MANY)) {
+                    if (!$event->getFilterQuery()->hasJoinAlias($fieldName)) {
+                        $queryBuilder->leftJoin($event->getField(), $fieldName);
+                    }
+
+                    $filterField = $fieldName;
+                }
+            }
 
             if ($values['value'] instanceof Collection) {
                 $ids = array();
 
                 foreach ($values['value'] as $value) {
-                    $ids[] = $this->getValueIdentifier($value);
+                    $ids[] = $this->getEntityIdentifier($value, $queryBuilder->getEntityManager());
                 }
 
                 if (count($ids) > 0) {
                     $event->setCondition(
-                        $expr->in($event->getField(), ':'.$paramName),
+                        $expr->in($filterField, ':'.$paramName),
                         array($paramName => array($ids, Connection::PARAM_INT_ARRAY))
                     );
                 }
             } else {
                 $event->setCondition(
-                    $expr->eq($event->getField(), ':'.$paramName),
-                    array($paramName => array($this->getValueIdentifier($values['value']), Type::INTEGER))
+                    $expr->eq($filterField, ':'.$paramName),
+                    array($paramName => array(
+                        $this->getEntityIdentifier($values['value'], $queryBuilder->getEntityManager()),
+                        Type::INTEGER
+                    ))
                 );
             }
         }
     }
 
     /**
-     * Get identifier of an object, with getter or `id` attribute.
-     *
-     * @param $value
+     * @param object $value
      * @return integer
      * @throws \RuntimeException
      */
-    private function getValueIdentifier($value)
+    protected function getEntityIdentifier($value, EntityManagerInterface $em)
     {
-        if (is_callable(array($value, 'getId'))) {
-            return $value->getId();
-        } elseif (isset($value->id)) {
-            return $value->id;
+        $class = get_class($value);
+        $metadata = $em->getClassMetadata($class);
+
+        if ($metadata->isIdentifierComposite) {
+            throw new \RuntimeException(sprintf('Composite identifier is not supported by FilterEntityType.', $class));
         }
 
-        throw new \RuntimeException(sprintf('Can\'t call method "getId()" on an instance of "%s"', get_class($value)));
+        $identifierValues = $metadata->getIdentifierValues($value);
+
+        if (empty($identifierValues)) {
+            throw new \RuntimeException(sprintf('Can\'t get identifier value for class "%s".', $class));
+        }
+
+        return array_shift($identifierValues);
     }
 }

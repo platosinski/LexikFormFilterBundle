@@ -20,6 +20,11 @@ abstract class ExpressionBuilder
     protected $forceCaseInsensitivity;
 
     /**
+     * @var string
+     */
+    protected $encoding;
+
+    /**
      * Get expression object.
      */
     public function expr()
@@ -29,10 +34,12 @@ abstract class ExpressionBuilder
 
     /**
      * @param boolean $forceCaseInsensitivity
+     * @param string|null $encoding
      */
-    public function __construct($forceCaseInsensitivity)
+    public function __construct($forceCaseInsensitivity, $encoding = null)
     {
         $this->forceCaseInsensitivity = $forceCaseInsensitivity;
+        $this->encoding = $encoding;
     }
 
     /**
@@ -160,7 +167,7 @@ abstract class ExpressionBuilder
      *
      * @return \Doctrine\ORM\Query\Expr\Comparison|string
      */
-    public function stringLike($field, $value, $type = FilterOperands::STRING_BOTH)
+    public function stringLike($field, $value, $type = FilterOperands::STRING_CONTAINS)
     {
         $value = $this->convertTypeToMask($value, $type);
 
@@ -184,13 +191,13 @@ abstract class ExpressionBuilder
             return;
         }
 
+        $copy = clone $date;
+
         if ($isMax) {
-            $date->setTime(23, 59, 59);
-        } else {
-            $date->setTime(0, 0, 0);
+            $copy->modify('+1 day -1 second');
         }
 
-        return $this->expr()->literal($date->format(self::SQL_DATE_TIME));
+        return $this->expr()->literal($copy->format(self::SQL_DATE_TIME));
     }
 
     /**
@@ -220,6 +227,10 @@ abstract class ExpressionBuilder
      */
     protected function convertTypeToMask($value, $type)
     {
+        if ($this->forceCaseInsensitivity) {
+            $value = $this->encoding ? mb_strtolower($value, $this->encoding) : mb_strtolower($value);
+        }
+
         switch ($type) {
             case FilterOperands::STRING_STARTS:
                 $value .= '%';
@@ -229,7 +240,7 @@ abstract class ExpressionBuilder
                 $value = '%' . $value;
                 break;
 
-            case FilterOperands::STRING_BOTH:
+            case FilterOperands::STRING_CONTAINS:
                 $value = '%' . $value . '%';
                 break;
 

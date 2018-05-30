@@ -2,6 +2,8 @@
 
 namespace Lexik\Bundle\FormFilterBundle\Tests\Fixtures\Filter;
 
+use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\NumberFilterType;
+use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\TextFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Query\QueryInterface;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -15,15 +17,19 @@ class ItemCallbackFilterType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $builder->add('name', 'filter_text', array(
+        $builder->add('name', TextFilterType::class, array(
             'apply_filter' => array($this, 'fieldNameCallback'),
         ));
-        $builder->add('position', 'filter_number', array(
+        $builder->add('position', NumberFilterType::class, array(
             'apply_filter' => function (QueryInterface $filterQuery, $field, $values) {
                 if (!empty($values['value'])) {
-                    return $filterQuery->createCondition(
-                        $filterQuery->getExpr()->neq($field, $values['value'])
-                    );
+                    if ($filterQuery->getExpr() instanceof \Doctrine\MongoDB\Query\Expr) {
+                        $expr = $filterQuery->getExpr()->field($field)->notEqual($values['value']);
+                    } else {
+                        $expr = $filterQuery->getExpr()->neq($field, $values['value']);
+                    }
+
+                    return $filterQuery->createCondition($expr);
                 }
 
                 return null;
@@ -31,7 +37,7 @@ class ItemCallbackFilterType extends AbstractType
         ));
     }
 
-    public function getName()
+    public function getBlockPrefix()
     {
         return 'item_filter';
     }
@@ -39,9 +45,13 @@ class ItemCallbackFilterType extends AbstractType
     public function fieldNameCallback(QueryInterface $filterQuery, $field, $values)
     {
         if (!empty($values['value'])) {
-            return $filterQuery->createCondition(
-                $filterQuery->getExpr()->neq($field, sprintf('\'%s\'', $values['value']))
-            );
+            if ($filterQuery->getExpr() instanceof \Doctrine\MongoDB\Query\Expr) {
+                $expr = $filterQuery->getExpr()->field($field)->notEqual($values['value']);
+            } else {
+                $expr = $filterQuery->getExpr()->neq($field, sprintf('\'%s\'', $values['value']));
+            }
+
+            return $filterQuery->createCondition($expr);
         }
 
         return null;

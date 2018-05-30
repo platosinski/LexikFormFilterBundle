@@ -2,6 +2,7 @@
 
 namespace Lexik\Bundle\FormFilterBundle\DependencyInjection;
 
+use Lexik\Bundle\FormFilterBundle\Filter\FilterOperands;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -24,6 +25,15 @@ class Configuration implements ConfigurationInterface
         $rootNode = $treeBuilder->root('lexik_form_filter');
         $rootNode
             ->children()
+                ->arrayNode('listeners')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('doctrine_dbal')->defaultFalse()->end()
+                        ->booleanNode('doctrine_orm')->defaultTrue()->end()
+                        ->booleanNode('doctrine_mongodb')->defaultFalse()->end()
+                    ->end()
+                ->end()
+
                 ->scalarNode('where_method')
                     ->defaultValue('and')
                     ->info('Defined the doctrine query builder method the bundle will use to add the entire filter condition.')
@@ -33,8 +43,22 @@ class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
 
+                ->scalarNode('condition_pattern')
+                    ->defaultValue('text.starts')
+                    ->info('Default condition pattern for TextFilterType')
+                    ->validate()
+                        ->ifNotInArray(array(null, 'text.equals', 'text.ends', 'text.contains', 'text.starts'))
+                        ->thenInvalid('Invalid value, please use "null", "text.contains", "text.starts", "text.ends", "text.equals".')
+                    ->end()
+                ->end()
+
                 ->booleanNode('force_case_insensitivity')
                     ->info('Whether to do case insensitive LIKE comparisons.')
+                    ->defaultNull()
+                ->end()
+
+                ->scalarNode('encoding')
+                    ->info('Encoding for case insensitive LIKE comparisons.')
                     ->defaultNull()
                 ->end()
             ->end();
